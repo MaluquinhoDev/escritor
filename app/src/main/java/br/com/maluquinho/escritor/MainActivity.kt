@@ -48,7 +48,7 @@ private fun EscritorApp(database: StoryDatabase) {
 
     val chapters by selectedProject?.let { database.chapters().observeForProject(it.id) }
         ?.collectAsStateWithLifecycle(initialValue = emptyList())
-        ?: remember { mutableStateOf(emptyList()) }
+        ?: remember { mutableStateOf(emptyList<StoryChapter>()) }
 
     Scaffold(
         topBar = {
