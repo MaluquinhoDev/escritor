@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -23,6 +24,10 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
  var extra by remember { mutableStateOf("") }
  var kind by remember { mutableStateOf("Objeto") }
  var chapterId by remember { mutableStateOf<Long?>(null) }
+ var editValues by remember { mutableStateOf<List<String>?>(null) }
+ var editSave by remember { mutableStateOf<((List<String>) -> Unit)?>(null) }
+ var editLabels by remember { mutableStateOf<List<String>>(emptyList()) }
+ fun openEditor(labels: List<String>, values: List<String>, save: (List<String>) -> Unit) { editLabels=labels; editValues=values; editSave=save }
  val scope= rememberCoroutineScope()
  val chapters by database.chapters().observeForProject(project.id).collectAsStateWithLifecycle(emptyList())
  val characters by database.characters().observe(project.id).collectAsStateWithLifecycle(emptyList())
@@ -50,7 +55,7 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
      OutlinedTextField(body,{body=it},Modifier.fillMaxWidth(),label={Text("Objetivo e resumo")},minLines=2)
      OutlinedTextField(extra,{extra=it},Modifier.fillMaxWidth(),label={Text("Conflito / resultado")},minLines=2)
      Button(onClick={val id=chapterId;if(id!=null&&name.isNotBlank())scope.launch{database.scenes().insert(StoryScene(chapterId=id,title=name.trim(),summary=body,conflict=extra));clear()}},enabled=chapterId!=null&&name.isNotBlank()){Icon(Icons.Default.Add,null);Text(" Adicionar cena")}
-     LazyColumn { items(scenes,key={it.id}) { s -> PlanningItem(s.title,s.summary+" "+s.conflict){scope.launch{database.scenes().delete(s)}} } }
+     LazyColumn { items(scenes,key={it.id}) { s -> PlanningItem(s.title,s.summary+" "+s.conflict,onEdit={openEditor(listOf("Título","Resumo","Objetivo","Conflito","Resultado","Texto"),listOf(s.title,s.summary,s.goal,s.conflict,s.outcome,s.content)){v->scope.launch{database.scenes().update(s.copy(title=v[0],summary=v[1],goal=v[2],conflict=v[3],outcome=v[4],content=v[5],updatedAt=System.currentTimeMillis()))}}}){scope.launch{database.scenes().delete(s)}} } }
     }
     1 -> {
      Text("Personagens",style=MaterialTheme.typography.titleLarge)
@@ -58,7 +63,7 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
      OutlinedTextField(extra,{extra=it},Modifier.fillMaxWidth(),label={Text("Papel")})
      OutlinedTextField(body,{body=it},Modifier.fillMaxWidth(),label={Text("Descrição, motivação, desejo, necessidade e arco")},minLines=3)
      Button(onClick={if(name.isNotBlank())scope.launch{database.characters().insert(StoryCharacter(projectId=project.id,name=name.trim(),role=extra,description=body,motivation=body));clear()}},enabled=name.isNotBlank()){Text("Adicionar personagem")}
-     LazyColumn{items(characters,key={it.id}){c->PlanningItem(c.name,c.role+" "+c.description){scope.launch{database.characters().delete(c)}}}}
+     LazyColumn{items(characters,key={it.id}){c->PlanningItem(c.name,c.role+" "+c.description,onEdit={openEditor(listOf("Nome","Papel","Descrição","Motivação","Objetivo","Necessidade","Defeito","Arco"),listOf(c.name,c.role,c.description,c.motivation,c.goal,c.need,c.flaw,c.arc)){v->scope.launch{database.characters().update(c.copy(name=v[0],role=v[1],description=v[2],motivation=v[3],goal=v[4],need=v[5],flaw=v[6],arc=v[7]))}}}){scope.launch{database.characters().delete(c)}}}}
     }
     2 -> {
      Text("Lugares",style=MaterialTheme.typography.titleLarge)
@@ -66,7 +71,7 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
      OutlinedTextField(body,{body=it},Modifier.fillMaxWidth(),label={Text("Descrição e atmosfera")},minLines=3)
      OutlinedTextField(extra,{extra=it},Modifier.fillMaxWidth(),label={Text("Regras do lugar")})
      Button(onClick={if(name.isNotBlank())scope.launch{database.places().insert(StoryPlace(projectId=project.id,name=name.trim(),description=body,atmosphere=body,rules=extra));clear()}},enabled=name.isNotBlank()){Text("Adicionar lugar")}
-     LazyColumn{items(places,key={it.id}){p->PlanningItem(p.name,p.description+" "+p.rules){scope.launch{database.places().delete(p)}}}}
+     LazyColumn{items(places,key={it.id}){p->PlanningItem(p.name,p.description+" "+p.rules,onEdit={openEditor(listOf("Nome","Descrição","Regras","Atmosfera"),listOf(p.name,p.description,p.rules,p.atmosphere)){v->scope.launch{database.places().update(p.copy(name=v[0],description=v[1],rules=v[2],atmosphere=v[3]))}}}){scope.launch{database.places().delete(p)}}}}
     }
     3 -> {
      Text("Elementos do universo",style=MaterialTheme.typography.titleLarge)
@@ -74,7 +79,7 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
      OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("Nome")})
      OutlinedTextField(body,{body=it},Modifier.fillMaxWidth(),label={Text("Descrição e funcionamento")},minLines=3)
      Button(onClick={if(name.isNotBlank())scope.launch{database.world().insert(WorldEntry(projectId=project.id,kind=kind,name=name.trim(),description=body));clear()}},enabled=name.isNotBlank()){Text("Adicionar elemento")}
-     LazyColumn{items(world,key={it.id}){w->PlanningItem(w.kind+": "+w.name,w.description){scope.launch{database.world().delete(w)}}}}
+     LazyColumn{items(world,key={it.id}){w->PlanningItem(w.kind+": "+w.name,w.description,onEdit={openEditor(listOf("Tipo","Nome","Descrição"),listOf(w.kind,w.name,w.description)){v->scope.launch{database.world().update(w.copy(kind=v[0],name=v[1],description=v[2]))}}}){scope.launch{database.world().delete(w)}}}}
     }
     4 -> {
      Text("Relações",style=MaterialTheme.typography.titleLarge)
@@ -82,7 +87,7 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
      OutlinedTextField(extra,{extra=it},Modifier.fillMaxWidth(),label={Text("Personagem B")})
      OutlinedTextField(body,{body=it},Modifier.fillMaxWidth(),label={Text("Relação e evolução")},minLines=2)
      Button(onClick={if(name.isNotBlank()&&extra.isNotBlank())scope.launch{database.relationships().insert(CharacterRelationship(projectId=project.id,fromCharacter=name.trim(),toCharacter=extra.trim(),description=body,evolution=body));clear()}},enabled=name.isNotBlank()&&extra.isNotBlank()){Text("Registrar relação")}
-     LazyColumn{items(relations,key={it.id}){r->PlanningItem(r.fromCharacter+" ↔ "+r.toCharacter,r.description){scope.launch{database.relationships().delete(r)}}}}
+     LazyColumn{items(relations,key={it.id}){r->PlanningItem(r.fromCharacter+" ↔ "+r.toCharacter,r.description,onEdit={openEditor(listOf("Personagem A","Personagem B","Descrição","Evolução"),listOf(r.fromCharacter,r.toCharacter,r.description,r.evolution)){v->scope.launch{database.relationships().update(r.copy(fromCharacter=v[0],toCharacter=v[1],description=v[2],evolution=v[3]))}}}){scope.launch{database.relationships().delete(r)}}}}
     }
     5 -> {
      Text("Cronologia",style=MaterialTheme.typography.titleLarge)
@@ -90,21 +95,21 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
      OutlinedTextField(extra,{extra=it},Modifier.fillMaxWidth(),label={Text("Data / período")})
      OutlinedTextField(body,{body=it},Modifier.fillMaxWidth(),label={Text("Descrição e consequências")},minLines=3)
      Button(onClick={if(name.isNotBlank())scope.launch{database.timeline().insert(TimelineEvent(projectId=project.id,title=name.trim(),storyDate=extra,description=body,consequences=body,orderIndex=events.size));clear()}},enabled=name.isNotBlank()){Text("Adicionar acontecimento")}
-     LazyColumn{items(events,key={it.id}){e->PlanningItem(e.storyDate+" — "+e.title,e.description){scope.launch{database.timeline().delete(e)}}}}
+     LazyColumn{items(events,key={it.id}){e->PlanningItem(e.storyDate+" — "+e.title,e.description,onEdit={openEditor(listOf("Acontecimento","Data/período","Descrição","Consequências"),listOf(e.title,e.storyDate,e.description,e.consequences)){v->scope.launch{database.timeline().update(e.copy(title=v[0],storyDate=v[1],description=v[2],consequences=v[3]))}}}){scope.launch{database.timeline().delete(e)}}}}
     }
     6 -> {
      Text("Notas de pesquisa",style=MaterialTheme.typography.titleLarge)
      OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("Título")})
      OutlinedTextField(body,{body=it},Modifier.fillMaxWidth(),label={Text("Conteúdo")},minLines=4)
      Button(onClick={if(name.isNotBlank())scope.launch{database.notes().insert(StoryNote(projectId=project.id,title=name.trim(),content=body));clear()}},enabled=name.isNotBlank()){Text("Salvar nota")}
-     LazyColumn{items(notes,key={it.id}){n->PlanningItem(n.title,n.content){scope.launch{database.notes().delete(n)}}}}
+     LazyColumn{items(notes,key={it.id}){n->PlanningItem(n.title,n.content,onEdit={openEditor(listOf("Título","Conteúdo","Categoria"),listOf(n.title,n.content,n.category)){v->scope.launch{database.notes().update(n.copy(title=v[0],content=v[1],category=v[2],updatedAt=System.currentTimeMillis()))}}}){scope.launch{database.notes().delete(n)}}}}
     }
     7 -> {
      Text("Meta de escrita",style=MaterialTheme.typography.titleLarge)
      OutlinedTextField(name,{name=it},Modifier.fillMaxWidth(),label={Text("Meta de palavras")})
      OutlinedTextField(body,{body=it},Modifier.fillMaxWidth(),label={Text("Data-alvo (opcional)")})
      Button(onClick={val target=name.toIntOrNull();if(target!=null&&target>0)scope.launch{database.goals().save(WritingGoal(projectId=project.id,targetWords=target,targetDate=body));clear()}},enabled=(name.toIntOrNull()?:0)>0){Text("Salvar meta")}
-     goal?.let{Text("Meta definida: "+it.targetWords+" palavras")}
+     goal?.let{g->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Meta definida: "+g.targetWords+" palavras");TextButton(onClick={openEditor(listOf("Meta de palavras","Data-alvo"),listOf(g.targetWords.toString(),g.targetDate)){v->v[0].toIntOrNull()?.takeIf{it>0}?.let{target->scope.launch{database.goals().save(g.copy(targetWords=target,targetDate=v[1]))}}}}){Text("Editar")}}}
     }
     8 -> {
      val totalWords = chapters.sumOf { it.content.trim().split(Regex("\\s+")).count { word -> word.isNotBlank() } }
@@ -129,9 +134,18 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
 }}} } }
     }
    }
+   editValues?.let { values ->
+    AlertDialog(
+     onDismissRequest={editValues=null;editSave=null},
+     title={Text("Editar planejamento")},
+     text={Column(Modifier.heightIn(max=480.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){values.forEachIndexed{index,value->OutlinedTextField(value=value,onValueChange={updated->editValues=editValues?.toMutableList()?.also{it[index]=updated}},modifier=Modifier.fillMaxWidth(),label={Text(editLabels.getOrElse(index){"Campo"})},minLines=if(listOf("Descrição","Conteúdo","Resumo","Texto").any{editLabels.getOrNull(index)?.contains(it,true)==true}) 3 else 1)}}},
+     confirmButton={TextButton(onClick={editValues?.let{editSave?.invoke(it)};editValues=null;editSave=null}){Text("Salvar alterações")}},
+     dismissButton={TextButton(onClick={editValues=null;editSave=null}){Text("Cancelar")}}
+    )
+   }
   }
  }
 }
-@Composable private fun PlanningItem(title:String,description:String,onDelete:()->Unit){
- Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Row(Modifier.fillMaxWidth().padding(12.dp),horizontalArrangement=Arrangement.SpaceBetween){Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleMedium);Text(description,style=MaterialTheme.typography.bodySmall)};IconButton(onClick=onDelete){Icon(Icons.Default.Delete,"Excluir")}}}
+@Composable private fun PlanningItem(title:String,description:String,onEdit:()->Unit,onDelete:()->Unit){
+ Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Row(Modifier.fillMaxWidth().padding(12.dp),horizontalArrangement=Arrangement.SpaceBetween){Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.titleMedium);Text(description,style=MaterialTheme.typography.bodySmall)};Row { IconButton(onClick=onEdit){Icon(Icons.Default.Edit,"Editar")}; IconButton(onClick=onDelete){Icon(Icons.Default.Delete,"Excluir")} }}}
 }
