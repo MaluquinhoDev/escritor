@@ -30,6 +30,23 @@ data class WritingGoal(@PrimaryKey(autoGenerate = true) val id: Long = 0,val pro
 @Entity(tableName = "app_settings")
 data class AppSetting(@PrimaryKey val key: String,val value: String)
 
+@Entity(
+ tableName = "narrative_links",
+ foreignKeys = [
+  ForeignKey(entity = StoryProject::class,parentColumns = ["id"],childColumns = ["projectId"],onDelete = ForeignKey.CASCADE),
+  ForeignKey(entity = StoryChapter::class,parentColumns = ["id"],childColumns = ["chapterId"],onDelete = ForeignKey.CASCADE)
+ ],
+ indices = [Index("projectId"),Index("chapterId"),Index(value = ["chapterId","elementType","elementId"],unique = true)]
+)
+data class NarrativeLink(
+ @PrimaryKey(autoGenerate = true) val id: Long = 0,
+ val projectId: Long,
+ val chapterId: Long,
+ val elementType: String,
+ val elementId: Long,
+ val createdAt: Long = System.currentTimeMillis()
+)
+
 @Dao interface ProjectDao {
  @Query("SELECT * FROM projects ORDER BY createdAt DESC") fun observeAll(): Flow<List<StoryProject>>
  @Insert suspend fun insert(project: StoryProject): Long
@@ -97,8 +114,13 @@ data class AppSetting(@PrimaryKey val key: String,val value: String)
  @Query("SELECT * FROM app_settings WHERE `key`=:key LIMIT 1") fun observe(key:String):Flow<AppSetting?>
  @Insert(onConflict=OnConflictStrategy.REPLACE) suspend fun put(setting:AppSetting)
 }
+@Dao interface NarrativeLinkDao {
+ @Query("SELECT * FROM narrative_links WHERE projectId=:projectId ORDER BY chapterId,elementType,elementId") fun observe(projectId:Long):Flow<List<NarrativeLink>>
+ @Insert(onConflict=OnConflictStrategy.IGNORE) suspend fun insert(link:NarrativeLink):Long
+ @Delete suspend fun delete(link:NarrativeLink)
+}
 
-@Database(entities=[StoryProject::class,StoryChapter::class,StoryScene::class,StoryCharacter::class,StoryPlace::class,WorldEntry::class,CharacterRelationship::class,TimelineEvent::class,StorySnapshot::class,StoryNote::class,WritingGoal::class,AppSetting::class],version=2,exportSchema=false)
+@Database(entities=[StoryProject::class,StoryChapter::class,StoryScene::class,StoryCharacter::class,StoryPlace::class,WorldEntry::class,CharacterRelationship::class,TimelineEvent::class,StorySnapshot::class,StoryNote::class,WritingGoal::class,AppSetting::class,NarrativeLink::class],version=3,exportSchema=false)
 abstract class StoryDatabase:RoomDatabase(){
  abstract fun projects():ProjectDao
  abstract fun chapters():ChapterDao
@@ -112,6 +134,7 @@ abstract class StoryDatabase:RoomDatabase(){
  abstract fun notes():NoteDao
  abstract fun goals():GoalDao
  abstract fun settings():SettingsDao
+ abstract fun narrativeLinks():NarrativeLinkDao
  companion object{
   @Volatile private var INSTANCE:StoryDatabase?=null
   private val MIGRATION_1_2=object:Migration(1,2){
@@ -137,6 +160,14 @@ abstract class StoryDatabase:RoomDatabase(){
     db.execSQL("CREATE TABLE IF NOT EXISTS app_settings (`key` TEXT NOT NULL PRIMARY KEY,value TEXT NOT NULL)")
    }
   }
-  fun get(context:Context):StoryDatabase=INSTANCE?: synchronized(this){INSTANCE?:Room.databaseBuilder(context.applicationContext,StoryDatabase::class.java,"escritor.db").addMigrations(MIGRATION_1_2).build().also{INSTANCE=it}}
+  private val MIGRATION_2_3=object:Migration(2,3){
+   override fun migrate(db:SupportSQLiteDatabase){
+    db.execSQL("CREATE TABLE IF NOT EXISTS narrative_links (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,projectId INTEGER NOT NULL,chapterId INTEGER NOT NULL,elementType TEXT NOT NULL,elementId INTEGER NOT NULL,createdAt INTEGER NOT NULL,FOREIGN KEY(projectId) REFERENCES projects(id) ON UPDATE NO ACTION ON DELETE CASCADE,FOREIGN KEY(chapterId) REFERENCES chapters(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+    db.execSQL("CREATE INDEX IF NOT EXISTS index_narrative_links_projectId ON narrative_links(projectId)")
+    db.execSQL("CREATE INDEX IF NOT EXISTS index_narrative_links_chapterId ON narrative_links(chapterId)")
+    db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_narrative_links_chapterId_elementType_elementId ON narrative_links(chapterId,elementType,elementId)")
+   }
+  }
+  fun get(context:Context):StoryDatabase=INSTANCE?: synchronized(this){INSTANCE?:Room.databaseBuilder(context.applicationContext,StoryDatabase::class.java,"escritor.db").addMigrations(MIGRATION_1_2,MIGRATION_2_3).build().also{INSTANCE=it}}
  }
 }
