@@ -118,6 +118,7 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
    }) { Icon(Icons.Default.Download,null); Text("TXT") }
    TextButton(onClick={ scope.launch { runCatching { exportPlanningArchive(database,project) }.onSuccess { planningJson=it; planningJsonExportLauncher.launch("planejamento.escritor.json") }.onFailure { android.widget.Toast.makeText(context,"Falha ao preparar planejamento: ${it.message}",android.widget.Toast.LENGTH_LONG).show() } } }) { Text("JSON") }
    }
+  }
   ScrollableTabRow(selectedTabIndex=tab) { tabs.forEachIndexed { i,t -> Tab(selected=tab==i,onClick={tab=i;clear()},text={Text(t)}) } }
   Column(Modifier.fillMaxSize().padding(14.dp)) {
    when(tab) {
