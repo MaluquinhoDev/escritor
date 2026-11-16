@@ -104,14 +104,72 @@ O MVP não envia texto para servidores. A arquitetura futura deve manter anális
 - Desempenho: manuscrito longo, lista extensa de capítulos e digitação contínua.
 - Recuperação: encerramento abrupto durante edição e restauração do último autosave.
 
-## 8. Roadmap
-1. MVP atual: projetos, formatos básicos, capítulos, editor e banco local.
-2. Fundação editorial: cenas, reordenação, autosave, snapshots, backup e exportação TXT/MD.
-3. Planejamento: personagens, locais, relações, cronologia e fichas.
-4. Técnicas: biblioteca consultável, exercícios e checklists específicos por modalidade.
-5. Revisão: ferramentas linguísticas locais, consistência e relatórios de leitura.
-6. Publicação: DOCX/EPUB, modelos editoriais e preparação para plataformas.
-7. Integrações opcionais: sincronização, colaboração e assistência inteligente, sempre com controle do autor.
+## 8. Roadmap de desenvolvimento
+
+O roadmap abaixo separa funcionalidades já presentes no aplicativo, trabalho ainda pendente e recursos de longo prazo. A ordem prioriza segurança dos manuscritos e utilidade para o processo de criação.
+
+### Etapa 1 — Fundação editorial
+- [ ] Separar a interface em telas e componentes menores.
+- [ ] Introduzir ViewModels e casos de uso para reduzir lógica nas telas.
+- [ ] Criar cenas dentro dos capítulos.
+- [ ] Reordenar capítulos e cenas sem perder conteúdo.
+- [ ] Implementar histórico de versões e recuperação de snapshots.
+- [ ] Criar backup completo e restauração.
+- [ ] Testar autosave, encerramento inesperado e integridade do banco.
+
+### Etapa 2 — Planejamento narrativo
+- [ ] Cadastro e edição de personagens.
+- [ ] Fichas de motivação, desejo, necessidade, contradições e arco.
+- [ ] Cadastro de lugares, objetos, organizações e elementos do universo.
+- [ ] Relações entre personagens e entidades.
+- [ ] Linha do tempo de acontecimentos.
+- [ ] Vínculos entre eventos, cenas e personagens.
+- [ ] Organização por volumes, atos e sequências.
+
+### Etapa 3 — Laboratório de escrita
+- [ ] Ampliar a biblioteca de técnicas por modalidade.
+- [ ] Criar fichas com definição, finalidade, exemplo e limitações de cada técnica.
+- [ ] Incluir exercícios práticos e checklists.
+- [ ] Cobrir conto, romance, novela, light novel, web novel, roteiro, poesia, crônica e fanfic.
+- [ ] Permitir marcar técnicas e exercícios como favoritos ou concluídos.
+
+### Etapa 4 — Revisão e continuidade
+- [ ] Detectar repetições lexicais e frases excessivamente longas.
+- [ ] Verificar consistência de nomes e termos.
+- [ ] Criar relatórios de leitura por capítulo e cena.
+- [ ] Analisar continuidade temporal e relações causais.
+- [ ] Sinalizar mudanças de ponto de vista e problemas de continuidade com evidências.
+- [ ] Manter toda sugestão editorial opcional, sem alterar o manuscrito automaticamente.
+
+### Etapa 5 — Editor avançado
+- [ ] Desfazer e refazer.
+- [ ] Personalização de fonte, tamanho, espaçamento e largura de linha.
+- [ ] Modo de concentração.
+- [ ] Metas de palavras e sessões de escrita.
+- [ ] Estatísticas de evolução por projeto.
+- [ ] Preferências persistentes, incluindo tema claro/escuro.
+
+### Etapa 6 — Intercâmbio e publicação
+- [ ] Importar TXT e Markdown.
+- [ ] Exportar Markdown preservando estrutura.
+- [ ] Exportar DOCX e EPUB.
+- [ ] Criar modelos de formatação editorial.
+- [ ] Preparar manuscritos para plataformas de publicação.
+- [ ] Validar importação/exportação com testes de round-trip.
+
+### Etapa 7 — Integrações opcionais
+- [ ] Sincronização entre dispositivos.
+- [ ] Resolução explícita de conflitos de versões.
+- [ ] Compartilhamento e colaboração.
+- [ ] Assistência inteligente opcional, com consentimento por ação e transparência sobre o conteúdo enviado.
+
+### Critérios de conclusão
+- Nenhuma operação de edição pode perder silenciosamente texto já salvo.
+- Migrações de banco devem preservar dados e ter testes.
+- Exportações devem preservar acentos, travessões, parágrafos, ordem e títulos.
+- Recursos de análise não podem reescrever a voz do autor sem solicitação explícita.
+- O app deve continuar utilizável offline para as funções centrais.
+- Builds e testes automatizados devem passar antes de considerar uma etapa concluída.
 
 ## 9. Estado implementado e limitações do primeiro APK
 O primeiro incremento contém uma aplicação nativa Compose, persistência Room para projetos/capítulos, criação e exclusão de projetos, seleção de formato, editor básico e contagem de palavras. Ainda não implementa autosave, cenas, personagens, exportação, histórico de versões, sincronização nem todos os módulos descritos. O roadmap distingue arquitetura-alvo de funcionalidades efetivamente entregues.
