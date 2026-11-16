@@ -101,7 +101,8 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
         ?: remember { mutableStateOf(emptyList<StoryChapter>()) }
 
     var exportContent by remember { mutableStateOf("") }
-    var exportBytes by remember { mutableStateOf(byteArrayOf()) }\n    var showExportMenu by remember { mutableStateOf(false) }
+    var exportBytes by remember { mutableStateOf(byteArrayOf()) }
+    var showExportMenu by remember { mutableStateOf(false) }
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
     ) { uri ->
