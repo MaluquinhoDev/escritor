@@ -197,7 +197,8 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
         }
     ) { padding ->
         when {
-            showTechniques -> TechniquesScreen(Modifier.fillMaxSize().padding(padding))\n            showPlanning && selectedProject != null -> ProjectPlanningScreen(database, selectedProject!!, Modifier.fillMaxSize().padding(padding))
+            showTechniques -> TechniquesScreen(Modifier.fillMaxSize().padding(padding))
+            showPlanning && selectedProject != null -> ProjectPlanningScreen(database, selectedProject!!, Modifier.fillMaxSize().padding(padding))
             selectedChapter != null -> {
                 Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 10.dp)) {
                     OutlinedTextField(
