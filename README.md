@@ -1,30 +1,44 @@
-# Escritor
+# Escritor — Android
 
-Aplicativo Android para planejar, escrever, organizar e revisar histórias em português.
+Aplicativo nativo para criar, organizar e escrever histórias em português.
 
-## Estado atual
+## Recursos desta versão
 
-Primeiro MVP Android nativo:
-- Projetos de escrita por formato (romance, conto, light novel e web novel).
-- Estrutura de capítulos.
-- Editor de texto com contagem de palavras.
-- Persistência local usando Room/SQLite.
-- GitHub Actions para compilar e publicar o APK como artefato.
+- Projetos para romance, conto, light novel, web novel, roteiro, poesia, crônica e fanfic.
+- Sinopse associada ao projeto.
+- Organização por capítulos.
+- Editor de texto com contagem de palavras e caracteres.
+- Salvamento automático local com debounce.
+- Exclusão de projetos e capítulos com confirmação.
+- Exportação do projeto completo em TXT.
+- Biblioteca inicial de técnicas narrativas.
+- Ícone adaptativo próprio para Android.
+- Banco de dados Room/SQLite; funciona sem conta e sem conexão.
 
-## Arquitetura
+## Tecnologia
 
-Consulte [docs/ARQUITETURA.md](docs/ARQUITETURA.md) e [docs/TECNICAS-DE-ESCRITA.md](docs/TECNICAS-DE-ESCRITA.md).
+- Kotlin, Android nativo e Jetpack Compose.
+- Material 3.
+- Room / SQLite.
+- Kotlin Coroutines e Flow.
+- Gradle 8.9, JDK 17 e Android SDK 35.
 
-## Build local
+## Compilação
 
-Requer JDK 17, Android SDK 35 e Gradle 8.9.
+O GitHub Actions compila o APK de depuração em pushes na branch `main`, pull requests e execução manual.
 
-```bash
-gradle :app:assembleDebug
-```
+Arquivo gerado:
+`app/build/outputs/apk/debug/app-debug.apk`
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`.
+Artefato do Actions:
+`Escritor-debug-apk`
+
+## Documentação
+
+- [Arquitetura](docs/ARQUITETURA.md)
+- [Técnicas de escrita](docs/TECNICAS-DE-ESCRITA.md)
+- [Comparação de aplicativos](docs/ECOSSISTEMA-DE-APPS.md)
 
 ## Privacidade
 
-O MVP salva os projetos no banco local do aplicativo. Não há conta, telemetria, sincronização ou envio automático de manuscritos.
+Os manuscritos são armazenados no banco local do aplicativo. Esta versão não exige conta, não possui telemetria e não envia textos para serviços externos. A exportação TXT é iniciada pelo usuário.
