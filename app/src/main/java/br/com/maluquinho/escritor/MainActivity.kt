@@ -203,7 +203,11 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                                 snackbar.showSnackbar("Capítulo salvo.")
                             }
                         }) { Icon(Icons.Default.Save, contentDescription = "Salvar e voltar") }
-                        selectedProject != null && showPlanning -> Unit
+                        selectedProject != null && showPlanning -> {
+                            IconButton(onClick = { showPlanning = false }) {
+                                Icon(Icons.Default.ExpandMore, contentDescription = "Recolher planejamento narrativo")
+                            }
+                        }
                         selectedProject != null -> {
                             IconButton(onClick = { showPlanning = true }) {
                                 Icon(Icons.Default.AccountTree, contentDescription = "Planejamento narrativo")
