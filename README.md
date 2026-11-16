@@ -46,4 +46,4 @@ O roadmap completo está em [Arquitetura — Roadmap de desenvolvimento](docs/AR
 
 ## Privacidade
 
-Os manuscritos são armazenados no banco local do aplicativo. Esta versão não exige conta, não possui telemetria e não envia textos para serviços externos. A exportação TXT é iniciada pelo usuário.
+Os manuscritos são armazenados no banco local do aplicativo. Esta versão não exige conta, não possui telemetria e não envia textos para serviços externos. Importação e exportação são iniciadas pelo usuário. O backup ZIP atual preserva o manuscrito em Markdown e metadados básicos, não é uma cópia integral do banco de dados.
