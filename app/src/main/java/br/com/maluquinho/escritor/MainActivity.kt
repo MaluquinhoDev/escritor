@@ -64,7 +64,11 @@ private fun projectAsText(project: StoryProject, chapters: List<StoryChapter>): 
     }
 }
 
-private fun writeBytes(context: Context, uri: Uri, content: ByteArray) {\n    context.contentResolver.openOutputStream(uri)?.use { it.write(content) } ?: error("Não foi possível abrir o arquivo de destino.")\n}\n\nprivate fun writeText(context: Context, uri: Uri, content: String) {
+private fun writeBytes(context: Context, uri: Uri, content: ByteArray) {
+    context.contentResolver.openOutputStream(uri)?.use { it.write(content) } ?: error("Não foi possível abrir o arquivo de destino.")
+}
+
+private fun writeText(context: Context, uri: Uri, content: String) {
     context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use {
         it.write(content)
     } ?: error("Não foi possível abrir o arquivo de destino.")
