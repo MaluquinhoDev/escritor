@@ -8,6 +8,7 @@ Aplicativo nativo para criar, organizar e escrever histórias em português.
 - Sinopse associada ao projeto.
 - Organização por capítulos.
 - Editor de texto com contagem de palavras e caracteres.
+- Tema escuro e tema claro com alternância na interface.
 - Salvamento automático local com debounce.
 - Exclusão de projetos e capítulos com confirmação.
 - Exportação do projeto completo em TXT.
@@ -32,6 +33,10 @@ Arquivo gerado:
 
 Artefato do Actions:
 `Escritor-debug-apk`
+
+## Planejamento
+
+O roadmap completo está em [Arquitetura — Roadmap de desenvolvimento](docs/ARQUITETURA.md#8-roadmap-de-desenvolvimento). Ele distingue recursos implementados, pendências e integrações futuras.
 
 ## Documentação
 
