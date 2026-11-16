@@ -205,7 +205,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                         }) { Icon(Icons.Default.Save, contentDescription = "Salvar e voltar") }
                         selectedProject != null && showPlanning -> {
                             IconButton(onClick = { showPlanning = false }) {
-                                Icon(Icons.Default.ExpandMore, contentDescription = "Recolher planejamento narrativo")
+                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Recolher planejamento narrativo")
                             }
                         }
                         selectedProject != null -> {
