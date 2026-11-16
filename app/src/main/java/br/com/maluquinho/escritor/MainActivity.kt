@@ -15,11 +15,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.maluquinho.escritor.data.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,6 +66,10 @@ private fun projectAsText(project: StoryProject, chapters: List<StoryChapter>): 
     }
 }
 
+private fun writeBytes(context: Context, uri: Uri, content: ByteArray) {
+    context.contentResolver.openOutputStream(uri)?.use { it.write(content) } ?: error("Não foi possível abrir o arquivo de destino.")
+}
+
 private fun writeText(context: Context, uri: Uri, content: String) {
     context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use {
         it.write(content)
@@ -71,7 +80,8 @@ private fun writeText(context: Context, uri: Uri, content: String) {
 @Composable
 private fun EscritorApp(database: StoryDatabase, context: Context) {
     val projects by database.projects().observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
-    var darkMode by rememberSaveable { mutableStateOf(true) }
+    var darkMode by rememberSaveable { mutableStateOf(context.getSharedPreferences("escritor", Context.MODE_PRIVATE).getBoolean("dark_mode", true)) }
+    var showPlanning by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     var selectedProject by remember { mutableStateOf<StoryProject?>(null) }
@@ -92,6 +102,8 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
         ?: remember { mutableStateOf(emptyList<StoryChapter>()) }
 
     var exportContent by remember { mutableStateOf("") }
+    var exportBytes by remember { mutableStateOf(byteArrayOf()) }
+    var showExportMenu by remember { mutableStateOf(false) }
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
     ) { uri ->
@@ -101,6 +113,48 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                 .onFailure { scope.launch { snackbar.showSnackbar("Falha ao exportar: ${it.message}") } }
         }
     }
+    val projectArchiveExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) runCatching { writeText(context, uri, exportContent) }
+            .onSuccess { scope.launch { snackbar.showSnackbar("Arquivo de projeto exportado.") } }
+            .onFailure { scope.launch { snackbar.showSnackbar("Falha ao exportar projeto: ${it.message}") } }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            runCatching {
+                val imported = readArchiveText(context, uri)
+                val title = (uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: "História importada").ifBlank { "História importada" }
+                val projectId = database.projects().insert(StoryProject(title = title, format = "Importado"))
+                database.chapters().insert(StoryChapter(projectId = projectId, title = "Texto importado", content = imported))
+                selectedProject = StoryProject(id = projectId, title = title, format = "Importado")
+            }.onSuccess { snackbar.showSnackbar("Texto importado como novo projeto.") }
+             .onFailure { snackbar.showSnackbar("Falha na importação: ${it.message}") }
+        }
+    }
+    val projectArchiveImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            runCatching {
+                val json = readArchiveText(context, uri)
+                val data = org.json.JSONObject(json).getJSONObject("project")
+                val id = importProjectArchive(database, json)
+                selectedProject = StoryProject(id=id,title=data.optString("title","Projeto importado"),format=data.optString("format","Romance"),synopsis=data.optString("synopsis",""))
+            }.onSuccess { snackbar.showSnackbar("Projeto completo importado com capítulos e planejamento.") }
+             .onFailure { snackbar.showSnackbar("Falha ao importar projeto: ${it.message}") }
+        }
+    }
+    val chapterImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            runCatching {
+                val project = selectedProject ?: error("Abra um projeto antes de importar um capítulo.")
+                importChapterText(database, project.id, uri.lastPathSegment?.substringAfterLast('/') ?: "Capítulo importado.txt", readArchiveText(context, uri))
+            }.onSuccess { snackbar.showSnackbar("Capítulo importado para o projeto.") }
+             .onFailure { snackbar.showSnackbar("Falha ao importar capítulo: ${it.message}") }
+        }
+    }
+
+    val markdownLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri -> if (uri != null) runCatching { writeText(context, uri, exportBytes.toString(Charsets.UTF_8)) }.onFailure { scope.launch { snackbar.showSnackbar("Falha na exportação: ${it.message}") } } }
+    val docxLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) { uri -> if (uri != null) runCatching { writeBytes(context, uri, exportBytes) }.onFailure { scope.launch { snackbar.showSnackbar("Falha na exportação: ${it.message}") } } }
+    val epubLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/epub+zip")) { uri -> if (uri != null) runCatching { writeBytes(context, uri, exportBytes) }.onFailure { scope.launch { snackbar.showSnackbar("Falha na exportação: ${it.message}") } } }
+    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> if (uri != null) runCatching { writeBytes(context, uri, exportBytes) }.onFailure { scope.launch { snackbar.showSnackbar("Falha no backup: ${it.message}") } } }
 
     // Salvamento automático com debounce: evita gravar a cada tecla.
     LaunchedEffect(selectedChapter?.id, chapterTitle, chapterText) {
@@ -128,6 +182,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                         Text(
                             when {
                                 showTechniques -> "Biblioteca de escrita"
+                                showPlanning -> "Planejamento narrativo"
                                 selectedChapter != null -> "Editor de histórias"
                                 selectedProject != null -> selectedProject!!.title
                                 else -> "Oficina de histórias"
@@ -142,6 +197,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                         IconButton(onClick = {
                             when {
                                 showTechniques -> showTechniques = false
+                                showPlanning -> showPlanning = false
                                 selectedChapter != null -> selectedChapter = null
                                 else -> selectedProject = null
                             }
@@ -151,7 +207,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { darkMode = !darkMode }) {
+                    IconButton(onClick = { darkMode = !darkMode; context.getSharedPreferences("escritor", Context.MODE_PRIVATE).edit().putBoolean("dark_mode", darkMode).apply() }) {
                         Icon(
                             imageVector = if (darkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
                             contentDescription = if (darkMode) "Ativar tema claro" else "Ativar tema escuro"
@@ -162,6 +218,9 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                         selectedChapter != null -> IconButton(onClick = {
                             val chapter = selectedChapter!!
                             scope.launch {
+                                if (chapter.content.isNotBlank() && chapter.content != chapterText) {
+                                    database.snapshots().insert(StorySnapshot(projectId = chapter.projectId, chapterId = chapter.id, title = chapter.title, content = chapter.content))
+                                }
                                 database.chapters().update(
                                     chapter.copy(title = chapterTitle.ifBlank { "Sem título" }, content = chapterText, updatedAt = System.currentTimeMillis())
                                 )
@@ -169,14 +228,32 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                                 snackbar.showSnackbar("Capítulo salvo.")
                             }
                         }) { Icon(Icons.Default.Save, contentDescription = "Salvar e voltar") }
-                        selectedProject != null -> IconButton(onClick = {
-                            exportContent = projectAsText(selectedProject!!, chapters)
-                            exportLauncher.launch("${selectedProject!!.title.replace(Regex("[^\\p{L}\\p{N} _-]"), "").ifBlank { "historia" }}.txt")
-                        }) { Icon(Icons.Default.Download, contentDescription = "Exportar história") }
+                        selectedProject != null && showPlanning -> Unit
+                        selectedProject != null -> {
+                            IconButton(onClick = { showPlanning = true }) {
+                                Icon(Icons.Default.AccountTree, contentDescription = "Planejamento narrativo")
+                            }
+                            Box {
+                                IconButton(onClick = { showExportMenu = true }) { Icon(Icons.Default.Download, contentDescription = "Exportar história") }
+                                DropdownMenu(expanded = showExportMenu, onDismissRequest = { showExportMenu = false }) {
+                                    DropdownMenuItem(text = { Text("Exportar projeto Escritor (.json)") }, onClick = { showExportMenu = false; scope.launch { runCatching { exportProjectArchive(database, selectedProject!!) }.onSuccess { exportContent=it; projectArchiveExportLauncher.launch("projeto.escritor.json") }.onFailure { snackbar.showSnackbar("Falha ao preparar arquivo: ${it.message}") } } })
+                                    DropdownMenuItem(text = { Text("Importar capítulo TXT/Markdown") }, onClick = { showExportMenu = false; chapterImportLauncher.launch(arrayOf("text/plain","text/markdown","text/*")) })
+                                    DropdownMenuItem(text = { Text("Exportar TXT") }, onClick = { showExportMenu = false; exportContent = projectAsText(selectedProject!!, chapters); exportLauncher.launch("historia.txt") })
+                                    DropdownMenuItem(text = { Text("Exportar Markdown") }, onClick = { showExportMenu = false; exportBytes = projectAsMarkdown(selectedProject!!, chapters).toByteArray(Charsets.UTF_8); markdownLauncher.launch("historia.md") })
+                                    DropdownMenuItem(text = { Text("Exportar DOCX") }, onClick = { showExportMenu = false; exportBytes = projectAsDocx(selectedProject!!, chapters); docxLauncher.launch("historia.docx") })
+                                    DropdownMenuItem(text = { Text("Exportar EPUB") }, onClick = { showExportMenu = false; exportBytes = projectAsEpub(selectedProject!!, chapters); epubLauncher.launch("historia.epub") })
+                                    DropdownMenuItem(text = { Text("Backup ZIP textual") }, onClick = { showExportMenu = false; exportBytes = projectBackupZip(selectedProject!!, chapters); backupLauncher.launch("historia-backup.zip") })
+                                }
+                            }
+                        }
                         else -> {
                             IconButton(onClick = { showTechniques = true }) {
                                 Icon(Icons.Default.Lightbulb, contentDescription = "Técnicas de escrita")
                             }
+                            IconButton(onClick = { projectArchiveImportLauncher.launch(arrayOf("application/json", "text/json", "*/*")) }) {
+                                Icon(Icons.Default.UploadFile, contentDescription = "Importar TXT ou Markdown")
+                            }
+                            IconButton(onClick = { importLauncher.launch(arrayOf("text/plain", "text/markdown", "text/*")) }) { Icon(Icons.Default.Book, contentDescription = "Importar texto como novo projeto") }
                             IconButton(onClick = { showNewProject = true }) {
                                 Icon(Icons.Default.Add, contentDescription = "Novo projeto")
                             }
@@ -188,6 +265,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
     ) { padding ->
         when {
             showTechniques -> TechniquesScreen(Modifier.fillMaxSize().padding(padding))
+            showPlanning && selectedProject != null -> ProjectPlanningScreen(database, selectedProject!!, Modifier.fillMaxSize().padding(padding))
             selectedChapter != null -> {
                 Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 10.dp)) {
                     OutlinedTextField(
@@ -280,6 +358,21 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                                             }
                                         }
                                     }
+                                    val chapterIndex = chapters.indexOfFirst { it.id == chapter.id }
+                                    IconButton(onClick = {
+                                        if (chapterIndex > 0) scope.launch {
+                                            val previous = chapters[chapterIndex - 1]
+                                            database.chapters().update(chapter.copy(position = previous.position))
+                                            database.chapters().update(previous.copy(position = chapter.position))
+                                        }
+                                    }, enabled = chapterIndex > 0) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Mover capítulo para cima") }
+                                    IconButton(onClick = {
+                                        if (chapterIndex in 0 until chapters.lastIndex) scope.launch {
+                                            val next = chapters[chapterIndex + 1]
+                                            database.chapters().update(chapter.copy(position = next.position))
+                                            database.chapters().update(next.copy(position = chapter.position))
+                                        }
+                                    }, enabled = chapterIndex in 0 until chapters.lastIndex) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Mover capítulo para baixo") }
                                     IconButton(onClick = { deleteChapter = chapter }) {
                                         Icon(Icons.Default.Delete, contentDescription = "Excluir capítulo")
                                     }

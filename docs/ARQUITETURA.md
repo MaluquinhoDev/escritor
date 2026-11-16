@@ -171,5 +171,30 @@ O roadmap abaixo separa funcionalidades já presentes no aplicativo, trabalho ai
 - O app deve continuar utilizável offline para as funções centrais.
 - Builds e testes automatizados devem passar antes de considerar uma etapa concluída.
 
-## 9. Estado implementado e limitações do primeiro APK
-O primeiro incremento contém uma aplicação nativa Compose, persistência Room para projetos/capítulos, criação e exclusão de projetos, seleção de formato, editor básico e contagem de palavras. Ainda não implementa autosave, cenas, personagens, exportação, histórico de versões, sincronização nem todos os módulos descritos. O roadmap distingue arquitetura-alvo de funcionalidades efetivamente entregues.
+# Estado da implementação (PR em desenvolvimento)
+
+A implementação atual ampliou o MVP com persistência local para planejamento narrativo e ferramentas editoriais. O status abaixo evita confundir estrutura de dados com uma experiência já completa.
+
+## Implementado nesta entrega
+- Migração Room 1 → 2 sem descartar projetos e capítulos existentes.
+- Entidades e DAOs locais para cenas, personagens, lugares, elementos do universo, relações, cronologia, notas, metas, snapshots e preferências.
+- Interface inicial para cadastrar e excluir esses elementos.
+- Reordenação de capítulos.
+- Snapshots manuais de capítulos e restauração de conteúdo.
+- Diagnóstico heurístico de termos recorrentes e frases longas.
+- Importação de arquivos TXT/Markdown como novo projeto.
+- Exportação TXT, Markdown, DOCX e EPUB.
+- Backup ZIP textual do manuscrito.
+- Preferência de tema persistida entre reinicializações.
+
+## Ainda não concluído
+- Edição completa dos registros de planejamento (a tela atual cobre cadastro e exclusão; edição detalhada de fichas ainda falta).
+- Organização avançada em volumes, atos e sequências; arrastar e soltar cenas; vincular eventos a cenas e personagens.
+- Revisão linguística, gramática, ponto de vista e consistência semântica.
+- Editor com desfazer/refazer, tipografia configurável, foco e metas por sessão.
+- Importação DOCX/EPUB e restauração de backup ZIP do banco completo.
+- Modelos editoriais e pré-visualização de publicação.
+- Sincronização, colaboração e resolução de conflitos: dependem de serviço remoto, autenticação e política de privacidade; não são simulados como se fossem recursos locais.
+
+## Limites importantes
+O diagnóstico textual é heurístico e não substitui revisão linguística. O ZIP é um pacote de manuscrito em Markdown, não backup binário do banco. A exportação DOCX/EPUB cria documentos básicos e ainda precisa de testes de compatibilidade com leitores e editores variados.
