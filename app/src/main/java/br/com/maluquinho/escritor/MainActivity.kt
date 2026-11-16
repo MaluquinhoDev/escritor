@@ -113,6 +113,11 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                 .onFailure { scope.launch { snackbar.showSnackbar("Falha ao exportar: ${it.message}") } }
         }
     }
+    val projectArchiveExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) runCatching { writeText(context, uri, exportContent) }
+            .onSuccess { scope.launch { snackbar.showSnackbar("Arquivo de projeto exportado.") } }
+            .onFailure { scope.launch { snackbar.showSnackbar("Falha ao exportar projeto: ${it.message}") } }
+    }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
             runCatching {
@@ -231,7 +236,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                             Box {
                                 IconButton(onClick = { showExportMenu = true }) { Icon(Icons.Default.Download, contentDescription = "Exportar história") }
                                 DropdownMenu(expanded = showExportMenu, onDismissRequest = { showExportMenu = false }) {
-                                    DropdownMenuItem(text = { Text("Exportar projeto Escritor (.json)") }, onClick = { showExportMenu = false; scope.launch { runCatching { exportProjectArchive(database, selectedProject!!) }.onSuccess { exportContent=it; exportLauncher.launch("projeto.escritor.json") }.onFailure { snackbar.showSnackbar("Falha ao preparar arquivo: ${it.message}") } } })
+                                    DropdownMenuItem(text = { Text("Exportar projeto Escritor (.json)") }, onClick = { showExportMenu = false; scope.launch { runCatching { exportProjectArchive(database, selectedProject!!) }.onSuccess { exportContent=it; projectArchiveExportLauncher.launch("projeto.escritor.json") }.onFailure { snackbar.showSnackbar("Falha ao preparar arquivo: ${it.message}") } } })
                                     DropdownMenuItem(text = { Text("Importar capítulo TXT/Markdown") }, onClick = { showExportMenu = false; chapterImportLauncher.launch(arrayOf("text/plain","text/markdown","text/*")) })
                                     DropdownMenuItem(text = { Text("Exportar TXT") }, onClick = { showExportMenu = false; exportContent = projectAsText(selectedProject!!, chapters); exportLauncher.launch("historia.txt") })
                                     DropdownMenuItem(text = { Text("Exportar Markdown") }, onClick = { showExportMenu = false; exportBytes = projectAsMarkdown(selectedProject!!, chapters).toByteArray(Charsets.UTF_8); markdownLauncher.launch("historia.md") })
