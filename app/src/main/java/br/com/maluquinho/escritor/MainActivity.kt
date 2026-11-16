@@ -64,7 +64,7 @@ private fun projectAsText(project: StoryProject, chapters: List<StoryChapter>): 
     }
 }
 
-private fun writeText(context: Context, uri: Uri, content: String) {
+private fun writeBytes(context: Context, uri: Uri, content: ByteArray) {\n    context.contentResolver.openOutputStream(uri)?.use { it.write(content) } ?: error("Não foi possível abrir o arquivo de destino.")\n}\n\nprivate fun writeText(context: Context, uri: Uri, content: String) {
     context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use {
         it.write(content)
     } ?: error("Não foi possível abrir o arquivo de destino.")
@@ -95,7 +95,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
         ?.collectAsStateWithLifecycle(initialValue = emptyList())
         ?: remember { mutableStateOf(emptyList<StoryChapter>()) }
 
-    var exportContent by remember { mutableStateOf("") }
+    var exportContent by remember { mutableStateOf("") }\n    var exportBytes by remember { mutableStateOf(byteArrayOf()) }\n    var showExportMenu by remember { mutableStateOf(false) }
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
     ) { uri ->
@@ -105,6 +105,11 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                 .onFailure { scope.launch { snackbar.showSnackbar("Falha ao exportar: ${it.message}") } }
         }
     }
+
+    val markdownLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri -> if (uri != null) runCatching { writeText(context, uri, exportBytes.toString(Charsets.UTF_8)) }.onFailure { scope.launch { snackbar.showSnackbar("Falha na exportação: ${it.message}") } } }
+    val docxLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) { uri -> if (uri != null) runCatching { writeBytes(context, uri, exportBytes) }.onFailure { scope.launch { snackbar.showSnackbar("Falha na exportação: ${it.message}") } } }
+    val epubLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/epub+zip")) { uri -> if (uri != null) runCatching { writeBytes(context, uri, exportBytes) }.onFailure { scope.launch { snackbar.showSnackbar("Falha na exportação: ${it.message}") } } }
+    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> if (uri != null) runCatching { writeBytes(context, uri, exportBytes) }.onFailure { scope.launch { snackbar.showSnackbar("Falha no backup: ${it.message}") } } }
 
     // Salvamento automático com debounce: evita gravar a cada tecla.
     LaunchedEffect(selectedChapter?.id, chapterTitle, chapterText) {
@@ -183,10 +188,16 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                             IconButton(onClick = { showPlanning = true }) {
                                 Icon(Icons.Default.AccountTree, contentDescription = "Planejamento narrativo")
                             }
-                            IconButton(onClick = {
-                                exportContent = projectAsText(selectedProject!!, chapters)
-                                exportLauncher.launch("${selectedProject!!.title.replace(Regex("[^\\p{L}\\p{N} _-]"), "").ifBlank { "historia" }}.txt")
-                            }) { Icon(Icons.Default.Download, contentDescription = "Exportar história") }
+                            Box {
+                                IconButton(onClick = { showExportMenu = true }) { Icon(Icons.Default.Download, contentDescription = "Exportar história") }
+                                DropdownMenu(expanded = showExportMenu, onDismissRequest = { showExportMenu = false }) {
+                                    DropdownMenuItem(text = { Text("Exportar TXT") }, onClick = { showExportMenu = false; exportContent = projectAsText(selectedProject!!, chapters); exportLauncher.launch("historia.txt") })
+                                    DropdownMenuItem(text = { Text("Exportar Markdown") }, onClick = { showExportMenu = false; exportBytes = projectAsMarkdown(selectedProject!!, chapters).toByteArray(Charsets.UTF_8); markdownLauncher.launch("historia.md") })
+                                    DropdownMenuItem(text = { Text("Exportar DOCX") }, onClick = { showExportMenu = false; exportBytes = projectAsDocx(selectedProject!!, chapters); docxLauncher.launch("historia.docx") })
+                                    DropdownMenuItem(text = { Text("Exportar EPUB") }, onClick = { showExportMenu = false; exportBytes = projectAsEpub(selectedProject!!, chapters); epubLauncher.launch("historia.epub") })
+                                    DropdownMenuItem(text = { Text("Backup ZIP textual") }, onClick = { showExportMenu = false; exportBytes = projectBackupZip(selectedProject!!, chapters); backupLauncher.launch("historia-backup.zip") })
+                                }
+                            }
                         }
                         else -> {
                             IconButton(onClick = { showTechniques = true }) {
