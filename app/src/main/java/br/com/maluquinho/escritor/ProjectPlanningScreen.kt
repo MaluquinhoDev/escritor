@@ -34,12 +34,24 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
  var editSave by remember { mutableStateOf<((List<String>) -> Unit)?>(null) }
  var editLabels by remember { mutableStateOf<List<String>>(emptyList()) }
  var exportText by remember { mutableStateOf("") }
+ var planningJson by remember { mutableStateOf("") }
  val context = LocalContext.current
  val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
   if (uri != null) {
    runCatching {
     context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { it.write(exportText) }
    }.onFailure { android.widget.Toast.makeText(context, "Falha ao exportar o planejamento: ${it.message}", android.widget.Toast.LENGTH_LONG).show() }
+  }
+ }
+ val planningJsonExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+  if (uri != null) runCatching { context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { it.write(planningJson) } ?: error("Não foi possível gravar o arquivo.") }
+   .onFailure { android.widget.Toast.makeText(context, "Falha ao exportar: ${it.message}", android.widget.Toast.LENGTH_LONG).show() }
+ }
+ val planningImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+  if (uri != null) scope.launch {
+   runCatching { importPlanningArchive(database, project.id, readArchiveText(context, uri)) }
+    .onSuccess { android.widget.Toast.makeText(context, "Planejamento importado.", android.widget.Toast.LENGTH_LONG).show() }
+    .onFailure { android.widget.Toast.makeText(context, "Falha ao importar planejamento: ${it.message}", android.widget.Toast.LENGTH_LONG).show() }
   }
  }
  fun openEditor(labels: List<String>, values: List<String>, save: (List<String>) -> Unit) { editLabels=labels; editValues=values; editSave=save }
@@ -58,7 +70,9 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
  Column(modifier.fillMaxSize()) {
   Row(Modifier.fillMaxWidth().padding(horizontal=14.dp, vertical=8.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
    Text("Planejamento narrativo",style=MaterialTheme.typography.titleLarge)
-   TextButton(onClick={
+   Row {
+    TextButton(onClick={ planningImportLauncher.launch(arrayOf("application/json","text/json","*/*")) }) { Icon(Icons.Default.Add,null); Text(" Importar JSON") }
+    TextButton(onClick={
     scope.launch {
      val allScenes = chapters.flatMap { chapter -> database.scenes().observeForChapter(chapter.id).first() }
      exportText = buildString {
@@ -82,36 +96,28 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
       }
       appendLine()
       appendLine("PERSONAGENS")
-      characters.forEach { c ->
-       appendLine("${c.name} (${c.role})")
-       appendLine("Descrição: ${c.description}")
-       appendLine("Motivação: ${c.motivation}")
-       appendLine("Objetivo: ${c.goal}")
-       appendLine("Necessidade: ${c.need}")
-       appendLine("Defeito: ${c.flaw}")
-       appendLine("Arco: ${c.arc}")
-       appendLine()
-      }
+      characters.forEach { x -> appendLine("${x.name} (${x.role})\nDescrição: ${x.description}\nMotivação: ${x.motivation}\nObjetivo: ${x.goal}\nNecessidade: ${x.need}\nDefeito: ${x.flaw}\nArco: ${x.arc}\n") }
       appendLine("LUGARES")
-      places.forEach { p -> appendLine("${p.name}\nDescrição: ${p.description}\nRegras: ${p.rules}\nAtmosfera: ${p.atmosphere}\n") }
+      places.forEach { x -> appendLine("${x.name}\nDescrição: ${x.description}\nRegras: ${x.rules}\nAtmosfera: ${x.atmosphere}\n") }
       appendLine("ELEMENTOS DO UNIVERSO")
-      world.forEach { w -> appendLine("${w.kind}: ${w.name}\n${w.description}\n") }
+      world.forEach { x -> appendLine("${x.kind}: ${x.name}\n${x.description}\n") }
       appendLine("RELAÇÕES")
-      relations.forEach { r -> appendLine("${r.fromCharacter} ↔ ${r.toCharacter}\nDescrição: ${r.description}\nEvolução: ${r.evolution}\n") }
+      relations.forEach { x -> appendLine("${x.fromCharacter} ↔ ${x.toCharacter}\nDescrição: ${x.description}\nEvolução: ${x.evolution}\n") }
       appendLine("CRONOLOGIA")
-      events.forEach { e -> appendLine("${e.storyDate} — ${e.title}\nDescrição: ${e.description}\nConsequências: ${e.consequences}\n") }
+      events.forEach { x -> appendLine("${x.storyDate} — ${x.title}\nDescrição: ${x.description}\nConsequências: ${x.consequences}\n") }
       appendLine("NOTAS")
-      notes.forEach { n -> appendLine("${n.title} [${n.category}]\n${n.content}\n") }
+      notes.forEach { x -> appendLine("${x.title} [${x.category}]\n${x.content}\n") }
       appendLine("META DE ESCRITA")
       goal?.let { appendLine("Meta: ${it.targetWords} palavras\nPalavras atuais: ${it.currentWords}\nData-alvo: ${it.targetDate}") } ?: appendLine("Nenhuma meta definida")
       appendLine()
       appendLine("VERSÕES / SNAPSHOTS")
-      snapshots.forEach { snap -> appendLine("${snap.title} — ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(snap.createdAt))}\n${snap.content}\n") }
+      snapshots.forEach { x -> appendLine("${x.title}\n${x.content}\n") }
      }
      exportLauncher.launch("planejamento-${project.title.replace(Regex("[^A-Za-z0-9_-]"), "_")}.txt")
     }
    }) { Icon(Icons.Default.Download,null); Text(" Exportar TXT") }
-  }
+   TextButton(onClick={ scope.launch { runCatching { exportPlanningArchive(database,project) }.onSuccess { planningJson=it; planningJsonExportLauncher.launch("planejamento.escritor.json") }.onFailure { android.widget.Toast.makeText(context,"Falha ao preparar planejamento: ${it.message}",android.widget.Toast.LENGTH_LONG).show() } } }) { Text("Exportar JSON") }
+   }
   ScrollableTabRow(selectedTabIndex=tab) { tabs.forEachIndexed { i,t -> Tab(selected=tab==i,onClick={tab=i;clear()},text={Text(t)}) } }
   Column(Modifier.fillMaxSize().padding(14.dp)) {
    when(tab) {
