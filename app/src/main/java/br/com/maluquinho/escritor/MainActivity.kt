@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lightbulb
@@ -71,7 +72,8 @@ private fun writeText(context: Context, uri: Uri, content: String) {
 @Composable
 private fun EscritorApp(database: StoryDatabase, context: Context) {
     val projects by database.projects().observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
-    var darkMode by rememberSaveable { mutableStateOf(true) }
+    var darkMode by rememberSaveable { mutableStateOf(context.getSharedPreferences("escritor", Context.MODE_PRIVATE).getBoolean("dark_mode", true)) }
+    var showPlanning by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     var selectedProject by remember { mutableStateOf<StoryProject?>(null) }
@@ -128,6 +130,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                         Text(
                             when {
                                 showTechniques -> "Biblioteca de escrita"
+                                showPlanning -> "Planejamento narrativo"
                                 selectedChapter != null -> "Editor de histórias"
                                 selectedProject != null -> selectedProject!!.title
                                 else -> "Oficina de histórias"
@@ -142,6 +145,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                         IconButton(onClick = {
                             when {
                                 showTechniques -> showTechniques = false
+                                showPlanning -> showPlanning = false
                                 selectedChapter != null -> selectedChapter = null
                                 else -> selectedProject = null
                             }
@@ -151,7 +155,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { darkMode = !darkMode }) {
+                    IconButton(onClick = { darkMode = !darkMode; context.getSharedPreferences("escritor", Context.MODE_PRIVATE).edit().putBoolean("dark_mode", darkMode).apply() }) {
                         Icon(
                             imageVector = if (darkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
                             contentDescription = if (darkMode) "Ativar tema claro" else "Ativar tema escuro"
@@ -187,7 +191,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
         }
     ) { padding ->
         when {
-            showTechniques -> TechniquesScreen(Modifier.fillMaxSize().padding(padding))
+            showTechniques -> TechniquesScreen(Modifier.fillMaxSize().padding(padding))\n            showPlanning && selectedProject != null -> ProjectPlanningScreen(database, selectedProject!!, Modifier.fillMaxSize().padding(padding))
             selectedChapter != null -> {
                 Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp, vertical = 10.dp)) {
                     OutlinedTextField(
