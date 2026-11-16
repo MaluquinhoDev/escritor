@@ -18,9 +18,12 @@ import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
@@ -35,7 +38,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = StoryDatabase.get(this)
-        setContent { MaterialTheme { EscritorApp(database, this) } }
+        setContent { EscritorApp(database, this) }
     }
 }
 
@@ -68,6 +71,7 @@ private fun writeText(context: Context, uri: Uri, content: String) {
 @Composable
 private fun EscritorApp(database: StoryDatabase, context: Context) {
     val projects by database.projects().observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
+    var darkMode by rememberSaveable { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     var selectedProject by remember { mutableStateOf<StoryProject?>(null) }
@@ -113,6 +117,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
         saveLabel = "Salvo automaticamente"
     }
 
+    MaterialTheme(colorScheme = if (darkMode) darkColorScheme() else lightColorScheme()) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
@@ -146,6 +151,12 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                     }
                 },
                 actions = {
+                    IconButton(onClick = { darkMode = !darkMode }) {
+                        Icon(
+                            imageVector = if (darkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = if (darkMode) "Ativar tema claro" else "Ativar tema escuro"
+                        )
+                    }
                     when {
                         showTechniques -> Unit
                         selectedChapter != null -> IconButton(onClick = {
@@ -395,6 +406,7 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
             },
             dismissButton = { TextButton(onClick = { deleteChapter = null }) { Text("Cancelar") } }
         )
+    }
     }
 }
 
