@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.maluquinho.escritor.data.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -115,14 +116,33 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
             runCatching {
-                val imported = context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
-                    ?: error("Não foi possível ler o arquivo.")
+                val imported = readArchiveText(context, uri)
                 val title = (uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: "História importada").ifBlank { "História importada" }
                 val projectId = database.projects().insert(StoryProject(title = title, format = "Importado"))
                 database.chapters().insert(StoryChapter(projectId = projectId, title = "Texto importado", content = imported))
                 selectedProject = StoryProject(id = projectId, title = title, format = "Importado")
             }.onSuccess { snackbar.showSnackbar("Texto importado como novo projeto.") }
              .onFailure { snackbar.showSnackbar("Falha na importação: ${it.message}") }
+        }
+    }
+    val projectArchiveImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            runCatching {
+                val json = readArchiveText(context, uri)
+                val data = org.json.JSONObject(json).getJSONObject("project")
+                val id = importProjectArchive(database, json)
+                selectedProject = StoryProject(id=id,title=data.optString("title","Projeto importado"),format=data.optString("format","Romance"),synopsis=data.optString("synopsis",""))
+            }.onSuccess { snackbar.showSnackbar("Projeto completo importado com capítulos e planejamento.") }
+             .onFailure { snackbar.showSnackbar("Falha ao importar projeto: ${it.message}") }
+        }
+    }
+    val chapterImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            runCatching {
+                val project = selectedProject ?: error("Abra um projeto antes de importar um capítulo.")
+                importChapterText(database, project.id, uri.lastPathSegment?.substringAfterLast('/') ?: "Capítulo importado.txt", readArchiveText(context, uri))
+            }.onSuccess { snackbar.showSnackbar("Capítulo importado para o projeto.") }
+             .onFailure { snackbar.showSnackbar("Falha ao importar capítulo: ${it.message}") }
         }
     }
 
@@ -211,6 +231,8 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                             Box {
                                 IconButton(onClick = { showExportMenu = true }) { Icon(Icons.Default.Download, contentDescription = "Exportar história") }
                                 DropdownMenu(expanded = showExportMenu, onDismissRequest = { showExportMenu = false }) {
+                                    DropdownMenuItem(text = { Text("Exportar projeto Escritor (.json)") }, onClick = { showExportMenu = false; scope.launch { runCatching { exportProjectArchive(database, selectedProject!!) }.onSuccess { exportContent=it; exportLauncher.launch("projeto.escritor.json") }.onFailure { snackbar.showSnackbar("Falha ao preparar arquivo: ${it.message}") } } })
+                                    DropdownMenuItem(text = { Text("Importar capítulo TXT/Markdown") }, onClick = { showExportMenu = false; chapterImportLauncher.launch(arrayOf("text/plain","text/markdown","text/*")) })
                                     DropdownMenuItem(text = { Text("Exportar TXT") }, onClick = { showExportMenu = false; exportContent = projectAsText(selectedProject!!, chapters); exportLauncher.launch("historia.txt") })
                                     DropdownMenuItem(text = { Text("Exportar Markdown") }, onClick = { showExportMenu = false; exportBytes = projectAsMarkdown(selectedProject!!, chapters).toByteArray(Charsets.UTF_8); markdownLauncher.launch("historia.md") })
                                     DropdownMenuItem(text = { Text("Exportar DOCX") }, onClick = { showExportMenu = false; exportBytes = projectAsDocx(selectedProject!!, chapters); docxLauncher.launch("historia.docx") })
@@ -223,9 +245,10 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                             IconButton(onClick = { showTechniques = true }) {
                                 Icon(Icons.Default.Lightbulb, contentDescription = "Técnicas de escrita")
                             }
-                            IconButton(onClick = { importLauncher.launch(arrayOf("text/plain", "text/markdown", "text/*")) }) {
+                            IconButton(onClick = { projectArchiveImportLauncher.launch(arrayOf("application/json", "text/json", "*/*")) }) {
                                 Icon(Icons.Default.UploadFile, contentDescription = "Importar TXT ou Markdown")
                             }
+                            IconButton(onClick = { importLauncher.launch(arrayOf("text/plain", "text/markdown", "text/*")) }) { Icon(Icons.Default.Book, contentDescription = "Importar texto como novo projeto") }
                             IconButton(onClick = { showNewProject = true }) {
                                 Icon(Icons.Default.Add, contentDescription = "Novo projeto")
                             }
