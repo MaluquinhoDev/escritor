@@ -109,6 +109,19 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                 .onFailure { scope.launch { snackbar.showSnackbar("Falha ao exportar: ${it.message}") } }
         }
     }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            runCatching {
+                val imported = context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                    ?: error("Não foi possível ler o arquivo.")
+                val title = (uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: "História importada").ifBlank { "História importada" }
+                val projectId = database.projects().insert(StoryProject(title = title, format = "Importado"))
+                database.chapters().insert(StoryChapter(projectId = projectId, title = "Texto importado", content = imported))
+                selectedProject = StoryProject(id = projectId, title = title, format = "Importado")
+            }.onSuccess { snackbar.showSnackbar("Texto importado como novo projeto.") }
+             .onFailure { snackbar.showSnackbar("Falha na importação: ${it.message}") }
+        }
+    }
 
     val markdownLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri -> if (uri != null) runCatching { writeText(context, uri, exportBytes.toString(Charsets.UTF_8)) }.onFailure { scope.launch { snackbar.showSnackbar("Falha na exportação: ${it.message}") } } }
     val docxLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.wordprocessingml.document")) { uri -> if (uri != null) runCatching { writeBytes(context, uri, exportBytes) }.onFailure { scope.launch { snackbar.showSnackbar("Falha na exportação: ${it.message}") } } }
@@ -206,6 +219,9 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                         else -> {
                             IconButton(onClick = { showTechniques = true }) {
                                 Icon(Icons.Default.Lightbulb, contentDescription = "Técnicas de escrita")
+                            }
+                            IconButton(onClick = { importLauncher.launch(arrayOf("text/plain", "text/markdown", "text/*")) }) {
+                                Icon(Icons.Default.UploadFile, contentDescription = "Importar TXT ou Markdown")
                             }
                             IconButton(onClick = { showNewProject = true }) {
                                 Icon(Icons.Default.Add, contentDescription = "Novo projeto")
