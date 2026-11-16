@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -166,6 +168,9 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                         selectedChapter != null -> IconButton(onClick = {
                             val chapter = selectedChapter!!
                             scope.launch {
+                                if (chapter.content.isNotBlank() && chapter.content != chapterText) {
+                                    database.snapshots().insert(StorySnapshot(projectId = chapter.projectId, chapterId = chapter.id, title = chapter.title, content = chapter.content))
+                                }
                                 database.chapters().update(
                                     chapter.copy(title = chapterTitle.ifBlank { "Sem título" }, content = chapterText, updatedAt = System.currentTimeMillis())
                                 )
@@ -291,6 +296,21 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                                             }
                                         }
                                     }
+                                    val chapterIndex = chapters.indexOfFirst { it.id == chapter.id }
+                                    IconButton(onClick = {
+                                        if (chapterIndex > 0) scope.launch {
+                                            val previous = chapters[chapterIndex - 1]
+                                            database.chapters().update(chapter.copy(position = previous.position))
+                                            database.chapters().update(previous.copy(position = chapter.position))
+                                        }
+                                    }, enabled = chapterIndex > 0) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Mover capítulo para cima") }
+                                    IconButton(onClick = {
+                                        if (chapterIndex in 0 until chapters.lastIndex) scope.launch {
+                                            val next = chapters[chapterIndex + 1]
+                                            database.chapters().update(chapter.copy(position = next.position))
+                                            database.chapters().update(next.copy(position = chapter.position))
+                                        }
+                                    }, enabled = chapterIndex in 0 until chapters.lastIndex) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Mover capítulo para baixo") }
                                     IconButton(onClick = { deleteChapter = chapter }) {
                                         Icon(Icons.Default.Delete, contentDescription = "Excluir capítulo")
                                     }
