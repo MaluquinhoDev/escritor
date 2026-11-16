@@ -2,7 +2,6 @@ package br.com.maluquinho.escritor
 
 import android.content.Context
 import android.net.Uri
-import androidx.room.withTransaction
 import br.com.maluquinho.escritor.data.*
 import kotlinx.coroutines.flow.first
 import org.json.JSONArray
@@ -61,7 +60,7 @@ suspend fun importProjectArchive(database: StoryDatabase, jsonText: String): Lon
     }
     importPlanningRows(database,projectId,root,chapterIds)
     val oldToNew = mutableMapOf<String,MutableMap<Long,Long>>()
-    suspend fun <T> mapRows(key:String, insert:suspend (JSONObject)->Long) {
+    suspend fun mapRows(key:String, insert:suspend (JSONObject)->Long) {
         val arr=root.optJSONArray(key) ?: return
         val map=mutableMapOf<Long,Long>()
         for(i in 0 until arr.length()) { val obj=arr.getJSONObject(i); val old=obj.optLong("id",-(i+1).toLong()); map[old]=insert(obj) }
