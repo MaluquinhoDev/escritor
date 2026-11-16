@@ -29,8 +29,8 @@ suspend fun exportProjectArchive(database: StoryDatabase, project: StoryProject)
     root.put("places", JSONArray().also { a -> database.places().observe(project.id).first().forEach { a.put(JSONObject().put("id",it.id).put("name",it.name).put("description",it.description).put("rules",it.rules).put("atmosphere",it.atmosphere)) } })
     root.put("world", JSONArray().also { a -> database.world().observe(project.id).first().forEach { a.put(JSONObject().put("id",it.id).put("kind",it.kind).put("name",it.name).put("description",it.description)) } })
     root.put("relationships", JSONArray().also { a -> database.relationships().observe(project.id).first().forEach { a.put(JSONObject().put("fromCharacter",it.fromCharacter).put("toCharacter",it.toCharacter).put("description",it.description).put("evolution",it.evolution)) } })
-    root.put("events", JSONArray().also { a -> database.timeline().observe(project.id).first().forEach { a.put(JSONObject().put("title",it.title).put("storyDate",it.storyDate).put("description",it.description).put("consequences",it.consequences).put("orderIndex",it.orderIndex)) } })
-    root.put("notes", JSONArray().also { a -> database.notes().observe(project.id).first().forEach { a.put(JSONObject().put("title",it.title).put("content",it.content).put("category",it.category).put("updatedAt",it.updatedAt)) } })
+    root.put("events", JSONArray().also { a -> database.timeline().observe(project.id).first().forEach { a.put(JSONObject().put("id",it.id).put("title",it.title).put("storyDate",it.storyDate).put("description",it.description).put("consequences",it.consequences).put("orderIndex",it.orderIndex)) } })
+    root.put("notes", JSONArray().also { a -> database.notes().observe(project.id).first().forEach { a.put(JSONObject().put("id",it.id).put("title",it.title).put("content",it.content).put("category",it.category).put("updatedAt",it.updatedAt)) } })
     root.put("snapshots", JSONArray().also { a -> database.snapshots().observe(project.id).first().forEach { a.put(JSONObject().put("chapterId",it.chapterId ?: JSONObject.NULL).put("title",it.title).put("content",it.content).put("createdAt",it.createdAt)) } })
     root.put("goal", database.goals().observe(project.id).first()?.let { JSONObject().put("targetWords",it.targetWords).put("currentWords",it.currentWords).put("targetDate",it.targetDate) } ?: JSONObject.NULL)
     root.put("links", JSONArray().also { a -> database.narrativeLinks().observe(project.id).first().forEach { a.put(JSONObject().put("chapterId",it.chapterId).put("elementType",it.elementType).put("elementId",it.elementId).put("createdAt",it.createdAt)) } })
@@ -43,7 +43,7 @@ suspend fun exportPlanningArchive(database: StoryDatabase, project: StoryProject
     full.remove("project")
     full.remove("snapshots")
     full.remove("goal")
-    full.remove("chapters")
+    full.put("chapters", JSONArray().also { a -> val old=full.optJSONArray("chapters") ?: JSONArray(); for(i in 0 until old.length()) { val item=old.getJSONObject(i); a.put(JSONObject().put("id",item.optLong("id")).put("title",item.text("title","Capítulo")).put("position",item.optInt("position",i))) } })
     full.remove("links")
     return full.toString(2)
 }
@@ -117,14 +117,18 @@ private suspend fun importOtherPlanning(database: StoryDatabase, projectId: Long
     val rel=root.optJSONArray("relationships") ?: JSONArray()
     for(i in 0 until rel.length()) { val o=rel.getJSONObject(i); database.relationships().insert(CharacterRelationship(projectId=projectId,fromCharacter=o.text("fromCharacter"),toCharacter=o.text("toCharacter"),description=o.text("description"),evolution=o.text("evolution"))) }
     val events=root.optJSONArray("events") ?: JSONArray()
-    for(i in 0 until events.length()) { val o=events.getJSONObject(i); database.timeline().insert(TimelineEvent(projectId=projectId,title=o.text("title","Acontecimento"),storyDate=o.text("storyDate"),description=o.text("description"),consequences=o.text("consequences"),orderIndex=o.optInt("orderIndex",i))) }
+    val eventMap=mutableMapOf<Long,Long>()
+    for(i in 0 until events.length()) { val o=events.getJSONObject(i); eventMap[o.optLong("id",-(i+1).toLong())]=database.timeline().insert(TimelineEvent(projectId=projectId,title=o.text("title","Acontecimento"),storyDate=o.text("storyDate"),description=o.text("description"),consequences=o.text("consequences"),orderIndex=o.optInt("orderIndex",i))) }
+    maps["events"]=eventMap
     val notes=root.optJSONArray("notes") ?: JSONArray()
-    for(i in 0 until notes.length()) { val o=notes.getJSONObject(i); database.notes().insert(StoryNote(projectId=projectId,title=o.text("title","Nota"),content=o.text("content"),category=o.text("category","Pesquisa"),updatedAt=o.optLong("updatedAt",System.currentTimeMillis()))) }
+    val noteMap=mutableMapOf<Long,Long>()
+    for(i in 0 until notes.length()) { val o=notes.getJSONObject(i); noteMap[o.optLong("id",-(i+1).toLong())]=database.notes().insert(StoryNote(projectId=projectId,title=o.text("title","Nota"),content=o.text("content"),category=o.text("category","Pesquisa"),updatedAt=o.optLong("updatedAt",System.currentTimeMillis()))) }
+    maps["notes"]=noteMap
 }
 
 private suspend fun importLinks(database: StoryDatabase, projectId: Long, root: JSONObject, chapterIds: Map<Long,Long>, maps: Map<String,Map<Long,Long>>) {
     val arr=root.optJSONArray("links") ?: return
-    val keyByType=mapOf("PERSONAGEM" to "characters","LUGAR" to "places","UNIVERSO" to "world")
+    val keyByType=mapOf("PERSONAGEM" to "characters","LUGAR" to "places","UNIVERSO" to "world","EVENTO" to "events","NOTA" to "notes")
     for(i in 0 until arr.length()) {
         val o=arr.getJSONObject(i); val chapter=chapterIds[o.optLong("chapterId")] ?: continue
         val type=o.text("elementType"); val source=keyByType[type] ?: continue
