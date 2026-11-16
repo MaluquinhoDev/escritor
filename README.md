@@ -6,12 +6,19 @@ Aplicativo nativo para criar, organizar e escrever histórias em português.
 
 - Projetos para romance, conto, light novel, web novel, roteiro, poesia, crônica e fanfic.
 - Sinopse associada ao projeto.
-- Organização por capítulos.
+- Organização e reordenação de capítulos.
+- Cenas com objetivo, resumo e conflito.
+- Planejamento de personagens, lugares, universo, relações e cronologia.
+- Notas de pesquisa e metas de escrita.
+- Diagnóstico heurístico de repetições e frases longas.
+- Snapshots manuais e restauração de versões de capítulos.
 - Editor de texto com contagem de palavras e caracteres.
-- Tema escuro e tema claro com alternância na interface.
+- Tema escuro e tema claro com preferência persistente.
 - Salvamento automático local com debounce.
 - Exclusão de projetos e capítulos com confirmação.
-- Exportação do projeto completo em TXT.
+- Importação de TXT e Markdown.
+- Exportação em TXT, Markdown, DOCX e EPUB.
+- Backup ZIP textual do manuscrito.
 - Biblioteca inicial de técnicas narrativas.
 - Ícone adaptativo próprio para Android.
 - Banco de dados Room/SQLite; funciona sem conta e sem conexão.
