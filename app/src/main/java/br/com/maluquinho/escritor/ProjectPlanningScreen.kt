@@ -20,7 +20,7 @@ import br.com.maluquinho.escritor.data.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 
-private val tabs = listOf("Cenas","Personagens","Lugares","Universo","Relações","Cronologia","Notas","Meta","Revisão","Versões")
+private val tabs = listOf("Cenas","Personagens","Lugares","Universo","Relações","Cronologia","Notas","Meta","Revisão","Versões","Conexões")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier:Modifier=Modifier) {
@@ -204,6 +204,7 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
  TextButton(onClick={scope.launch{database.snapshots().delete(snap)}}){Text("Excluir")}
 }}} } }
     }
+    10 -> NarrativeConnectionsScreen(database, project, Modifier.fillMaxSize())
    }
    editValues?.let { values ->
     AlertDialog(
