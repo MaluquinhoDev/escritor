@@ -2,6 +2,7 @@ package br.com.maluquinho.escritor
 
 import android.content.Context
 import android.net.Uri
+import androidx.room.withTransaction
 import br.com.maluquinho.escritor.data.*
 import kotlinx.coroutines.flow.first
 import org.json.JSONArray
@@ -42,9 +43,7 @@ suspend fun exportPlanningArchive(database: StoryDatabase, project: StoryProject
     full.put("format", "escritor-planning")
     full.remove("project")
     full.remove("snapshots")
-    full.remove("goal")
     full.put("chapters", JSONArray().also { a -> val old=full.optJSONArray("chapters") ?: JSONArray(); for(i in 0 until old.length()) { val item=old.getJSONObject(i); a.put(JSONObject().put("id",item.optLong("id")).put("title",item.text("title","Capítulo")).put("position",item.optInt("position",i))) } })
-    full.remove("links")
     return full.toString(2)
 }
 
@@ -52,7 +51,7 @@ suspend fun importProjectArchive(database: StoryDatabase, jsonText: String): Lon
     val root = JSONObject(jsonText)
     require(root.optString("format") == "escritor-project" && root.optInt("schemaVersion") == 1) { "Arquivo de projeto Escritor inválido ou versão não suportada." }
     val p = root.getJSONObject("project")
-    val projectId = database.projects().insert(StoryProject(title=p.text("title","Projeto importado"),format=p.text("format","Romance"),synopsis=p.text("synopsis")))
+    val projectId = database.projects().insert(StoryProject(title=p.text("title","Projeto importado"),format=p.text("format","Romance"),synopsis=p.text("synopsis"),createdAt=p.optLong("createdAt",System.currentTimeMillis())))
     val chapterIds = mutableMapOf<Long,Long>()
     val chapterArray = root.optJSONArray("chapters") ?: JSONArray()
     for (i in 0 until chapterArray.length()) {
@@ -103,6 +102,7 @@ suspend fun importPlanningArchive(database: StoryDatabase, projectId: Long, json
     add("places") { o -> database.places().insert(StoryPlace(projectId=projectId,name=o.text("name","Lugar"),description=o.text("description"),rules=o.text("rules"),atmosphere=o.text("atmosphere"))) }
     add("world") { o -> database.world().insert(WorldEntry(projectId=projectId,kind=o.text("kind","Objeto"),name=o.text("name","Elemento"),description=o.text("description"))) }
     importOtherPlanning(database,projectId,root,maps)
+    if(!root.isNull("goal")) { val o=root.getJSONObject("goal"); database.goals().save(WritingGoal(projectId=projectId,targetWords=o.optInt("targetWords",500),currentWords=o.optInt("currentWords",0),targetDate=o.text("targetDate"))) }
     importLinks(database,projectId,root,chapterIds,maps)
 }
 
