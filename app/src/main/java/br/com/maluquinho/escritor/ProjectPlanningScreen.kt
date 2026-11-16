@@ -122,8 +122,11 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
     9 -> {
      Text("Versões e recuperação",style=MaterialTheme.typography.titleLarge)
      Text("Crie um ponto de restauração com o conteúdo atual dos capítulos.")
-     Button(onClick={scope.launch{val snapshotText=chapters.joinToString("\\n\\n"){it.title+"\\n"+it.content};database.snapshots().insert(StorySnapshot(projectId=project.id,title="Snapshot manual",content=snapshotText));}}){Text("Criar snapshot do projeto")}
-     LazyColumn { items(snapshots,key={it.id}) { snap -> Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Column(Modifier.padding(12.dp)){Text(snap.title,style=MaterialTheme.typography.titleMedium);Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(snap.createdAt)),style=MaterialTheme.typography.bodySmall);Text(snap.content.take(180),style=MaterialTheme.typography.bodySmall);Row { TextButton(onClick={scope.launch{database.snapshots().delete(snap)}}){Text("Excluir")} }}} } }
+     Button(onClick={scope.launch{chapters.forEach { chapter -> database.snapshots().insert(StorySnapshot(projectId=project.id,chapterId=chapter.id,title=chapter.title,content=chapter.content)) }}}){Text("Criar snapshot dos capítulos")}
+     LazyColumn { items(snapshots,key={it.id}) { snap -> Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Column(Modifier.padding(12.dp)){Text(snap.title,style=MaterialTheme.typography.titleMedium);Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(snap.createdAt)),style=MaterialTheme.typography.bodySmall);Text(snap.content.take(180),style=MaterialTheme.typography.bodySmall);Row {
+ TextButton(onClick={scope.launch{val id=snap.chapterId;val original=chapters.firstOrNull{it.id==id};if(original!=null)database.chapters().update(original.copy(content=snap.content,updatedAt=System.currentTimeMillis()))}} ,enabled=snap.chapterId!=null){Text("Restaurar")}
+ TextButton(onClick={scope.launch{database.snapshots().delete(snap)}}){Text("Excluir")}
+}}} } }
     }
    }
   }
