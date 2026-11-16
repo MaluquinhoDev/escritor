@@ -13,7 +13,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.maluquinho.escritor.data.*
 import kotlinx.coroutines.launch
 
-private val tabs = listOf("Cenas","Personagens","Lugares","Universo","Relações","Cronologia","Notas","Meta")
+private val tabs = listOf("Cenas","Personagens","Lugares","Universo","Relações","Cronologia","Notas","Meta","Revisão","Versões")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier:Modifier=Modifier) {
@@ -32,6 +32,7 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
  val events by database.timeline().observe(project.id).collectAsStateWithLifecycle(emptyList())
  val notes by database.notes().observe(project.id).collectAsStateWithLifecycle(emptyList())
  val goal by database.goals().observe(project.id).collectAsStateWithLifecycle(null)
+ val snapshots by database.snapshots().observe(project.id).collectAsStateWithLifecycle(emptyList())
  val scenes by chapterId?.let { database.scenes().observeForChapter(it) }?.collectAsStateWithLifecycle(emptyList()) ?: remember { mutableStateOf(emptyList<StoryScene>()) }
  fun clear(){name="";body="";extra=""}
  Column(modifier.fillMaxSize()) {
@@ -104,6 +105,25 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
      OutlinedTextField(body,{body=it},Modifier.fillMaxWidth(),label={Text("Data-alvo (opcional)")})
      Button(onClick={val target=name.toIntOrNull();if(target!=null&&target>0)scope.launch{database.goals().save(WritingGoal(projectId=project.id,targetWords=target,targetDate=body));clear()}},enabled=(name.toIntOrNull()?:0)>0){Text("Salvar meta")}
      goal?.let{Text("Meta definida: "+it.targetWords+" palavras")}
+    }
+    8 -> {
+     val totalWords = chapters.sumOf { it.content.trim().split(Regex("\\s+")).count { word -> word.isNotBlank() } }
+     Text("Diagnóstico textual",style=MaterialTheme.typography.titleLarge)
+     Text("Capítulos: "+chapters.size+" · Palavras: "+totalWords)
+     val allText = chapters.joinToString(" ") { it.content }
+     val words = Regex("[\\p{L}\\p{N}']+").findAll(allText.lowercase()).map { it.value }.toList()
+     val repeated = words.groupingBy { it }.eachCount().filter { it.value >= 5 }.entries.sortedByDescending { it.value }.take(12)
+     val longSentences = allText.split(Regex("[.!?]+")).count { it.trim().split(Regex("\\s+")).size > 30 }
+     Text("Frases com mais de 30 palavras: "+longSentences)
+     Text("Termos recorrentes (5+ ocorrências)",style=MaterialTheme.typography.titleMedium)
+     repeated.forEach { Text(it.key+" — "+it.value+" vezes") }
+     Text("Relatório heurístico: repetições e extensão são alertas para revisão, não erros automáticos.",style=MaterialTheme.typography.bodySmall)
+    }
+    9 -> {
+     Text("Versões e recuperação",style=MaterialTheme.typography.titleLarge)
+     Text("Crie um ponto de restauração com o conteúdo atual dos capítulos.")
+     Button(onClick={scope.launch{val snapshotText=chapters.joinToString("\\n\\n"){it.title+"\\n"+it.content};database.snapshots().insert(StorySnapshot(projectId=project.id,title="Snapshot manual",content=snapshotText));}}){Text("Criar snapshot do projeto")}
+     LazyColumn { items(snapshots,key={it.id}) { snap -> Card(Modifier.fillMaxWidth().padding(vertical=4.dp)){Column(Modifier.padding(12.dp)){Text(snap.title,style=MaterialTheme.typography.titleMedium);Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(snap.createdAt)),style=MaterialTheme.typography.bodySmall);Text(snap.content.take(180),style=MaterialTheme.typography.bodySmall);Row { TextButton(onClick={scope.launch{database.snapshots().delete(snap)}}){Text("Excluir")} }}} } }
     }
    }
   }
