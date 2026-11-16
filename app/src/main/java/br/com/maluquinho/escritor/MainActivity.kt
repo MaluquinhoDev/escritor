@@ -173,10 +173,16 @@ private fun EscritorApp(database: StoryDatabase, context: Context) {
                                 snackbar.showSnackbar("Capítulo salvo.")
                             }
                         }) { Icon(Icons.Default.Save, contentDescription = "Salvar e voltar") }
-                        selectedProject != null -> IconButton(onClick = {
-                            exportContent = projectAsText(selectedProject!!, chapters)
-                            exportLauncher.launch("${selectedProject!!.title.replace(Regex("[^\\p{L}\\p{N} _-]"), "").ifBlank { "historia" }}.txt")
-                        }) { Icon(Icons.Default.Download, contentDescription = "Exportar história") }
+                        selectedProject != null && showPlanning -> Unit
+                        selectedProject != null -> {
+                            IconButton(onClick = { showPlanning = true }) {
+                                Icon(Icons.Default.AccountTree, contentDescription = "Planejamento narrativo")
+                            }
+                            IconButton(onClick = {
+                                exportContent = projectAsText(selectedProject!!, chapters)
+                                exportLauncher.launch("${selectedProject!!.title.replace(Regex("[^\\p{L}\\p{N} _-]"), "").ifBlank { "historia" }}.txt")
+                            }) { Icon(Icons.Default.Download, contentDescription = "Exportar história") }
+                        }
                         else -> {
                             IconButton(onClick = { showTechniques = true }) {
                                 Icon(Icons.Default.Lightbulb, contentDescription = "Técnicas de escrita")
