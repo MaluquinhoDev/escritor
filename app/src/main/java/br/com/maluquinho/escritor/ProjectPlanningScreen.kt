@@ -1,4 +1,7 @@
 package br.com.maluquinho.escritor
+import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -6,13 +9,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.maluquinho.escritor.data.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 private val tabs = listOf("Cenas","Personagens","Lugares","Universo","Relações","Cronologia","Notas","Meta","Revisão","Versões")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,6 +33,15 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
  var editValues by remember { mutableStateOf<List<String>?>(null) }
  var editSave by remember { mutableStateOf<((List<String>) -> Unit)?>(null) }
  var editLabels by remember { mutableStateOf<List<String>>(emptyList()) }
+ var exportText by remember { mutableStateOf("") }
+ val context = LocalContext.current
+ val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+  if (uri != null) {
+   runCatching {
+    context.contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { it.write(exportText) }
+   }.onFailure { android.widget.Toast.makeText(context, "Falha ao exportar o planejamento: ${it.message}", android.widget.Toast.LENGTH_LONG).show() }
+  }
+ }
  fun openEditor(labels: List<String>, values: List<String>, save: (List<String>) -> Unit) { editLabels=labels; editValues=values; editSave=save }
  val scope= rememberCoroutineScope()
  val chapters by database.chapters().observeForProject(project.id).collectAsStateWithLifecycle(emptyList())
@@ -41,6 +56,62 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
  val scenes by chapterId?.let { database.scenes().observeForChapter(it) }?.collectAsStateWithLifecycle(emptyList()) ?: remember { mutableStateOf(emptyList<StoryScene>()) }
  fun clear(){name="";body="";extra=""}
  Column(modifier.fillMaxSize()) {
+  Row(Modifier.fillMaxWidth().padding(horizontal=14.dp, vertical=8.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+   Text("Planejamento narrativo",style=MaterialTheme.typography.titleLarge)
+   TextButton(onClick={
+    scope.launch {
+     val allScenes = chapters.flatMap { chapter -> database.scenes().observeForChapter(chapter.id).first() }
+     exportText = buildString {
+      appendLine("PLANEJAMENTO NARRATIVO — ${project.title}")
+      appendLine("Formato: ${project.format}")
+      appendLine()
+      appendLine("SINOPSE")
+      appendLine(project.synopsis.ifBlank { "Não informada" })
+      appendLine()
+      appendLine("CENAS")
+      chapters.forEach { chapter ->
+       appendLine("CAPÍTULO: ${chapter.title}")
+       allScenes.filter { it.chapterId == chapter.id }.forEach { scene ->
+        appendLine("- ${scene.title}")
+        appendLine("  Resumo: ${scene.summary}")
+        appendLine("  Objetivo: ${scene.goal}")
+        appendLine("  Conflito: ${scene.conflict}")
+        appendLine("  Resultado: ${scene.outcome}")
+        appendLine("  Texto: ${scene.content}")
+       }
+      }
+      appendLine()
+      appendLine("PERSONAGENS")
+      characters.forEach { c ->
+       appendLine("${c.name} (${c.role})")
+       appendLine("Descrição: ${c.description}")
+       appendLine("Motivação: ${c.motivation}")
+       appendLine("Objetivo: ${c.goal}")
+       appendLine("Necessidade: ${c.need}")
+       appendLine("Defeito: ${c.flaw}")
+       appendLine("Arco: ${c.arc}")
+       appendLine()
+      }
+      appendLine("LUGARES")
+      places.forEach { p -> appendLine("${p.name}\nDescrição: ${p.description}\nRegras: ${p.rules}\nAtmosfera: ${p.atmosphere}\n") }
+      appendLine("ELEMENTOS DO UNIVERSO")
+      world.forEach { w -> appendLine("${w.kind}: ${w.name}\n${w.description}\n") }
+      appendLine("RELAÇÕES")
+      relations.forEach { r -> appendLine("${r.fromCharacter} ↔ ${r.toCharacter}\nDescrição: ${r.description}\nEvolução: ${r.evolution}\n") }
+      appendLine("CRONOLOGIA")
+      events.forEach { e -> appendLine("${e.storyDate} — ${e.title}\nDescrição: ${e.description}\nConsequências: ${e.consequences}\n") }
+      appendLine("NOTAS")
+      notes.forEach { n -> appendLine("${n.title} [${n.category}]\n${n.content}\n") }
+      appendLine("META DE ESCRITA")
+      goal?.let { appendLine("Meta: ${it.targetWords} palavras\nPalavras atuais: ${it.currentWords}\nData-alvo: ${it.targetDate}") } ?: appendLine("Nenhuma meta definida")
+      appendLine()
+      appendLine("VERSÕES / SNAPSHOTS")
+      snapshots.forEach { snap -> appendLine("${snap.title} — ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(snap.createdAt))}\n${snap.content}\n") }
+     }
+     exportLauncher.launch("planejamento-${project.title.replace(Regex("[^A-Za-z0-9_-]"), "_")}.txt")
+    }
+   }) { Icon(Icons.Default.Download,null); Text(" Exportar TXT") }
+  }
   ScrollableTabRow(selectedTabIndex=tab) { tabs.forEachIndexed { i,t -> Tab(selected=tab==i,onClick={tab=i;clear()},text={Text(t)}) } }
   Column(Modifier.fillMaxSize().padding(14.dp)) {
    when(tab) {
