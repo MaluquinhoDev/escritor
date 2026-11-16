@@ -36,6 +36,7 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
  var exportText by remember { mutableStateOf("") }
  var planningJson by remember { mutableStateOf("") }
  val context = LocalContext.current
+ val scope = rememberCoroutineScope()
  val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
   if (uri != null) {
    runCatching {
@@ -55,7 +56,6 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
   }
  }
  fun openEditor(labels: List<String>, values: List<String>, save: (List<String>) -> Unit) { editLabels=labels; editValues=values; editSave=save }
- val scope= rememberCoroutineScope()
  val chapters by database.chapters().observeForProject(project.id).collectAsStateWithLifecycle(emptyList())
  val characters by database.characters().observe(project.id).collectAsStateWithLifecycle(emptyList())
  val places by database.places().observe(project.id).collectAsStateWithLifecycle(emptyList())
@@ -68,10 +68,10 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
  val scenes by chapterId?.let { database.scenes().observeForChapter(it) }?.collectAsStateWithLifecycle(emptyList()) ?: remember { mutableStateOf(emptyList<StoryScene>()) }
  fun clear(){name="";body="";extra=""}
  Column(modifier.fillMaxSize()) {
-  Row(Modifier.fillMaxWidth().padding(horizontal=14.dp, vertical=8.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+  Column(Modifier.fillMaxWidth().padding(horizontal=14.dp, vertical=8.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
    Text("Planejamento narrativo",style=MaterialTheme.typography.titleLarge)
-   Row {
-    TextButton(onClick={ planningImportLauncher.launch(arrayOf("application/json","text/json","*/*")) }) { Icon(Icons.Default.Add,null); Text(" Importar JSON") }
+   Row(horizontalArrangement=Arrangement.spacedBy(2.dp)) {
+    TextButton(onClick={ planningImportLauncher.launch(arrayOf("application/json","text/json","*/*")) }) { Icon(Icons.Default.Add,null); Text("Importar") }
     TextButton(onClick={
     scope.launch {
      val allScenes = chapters.flatMap { chapter -> database.scenes().observeForChapter(chapter.id).first() }
@@ -115,8 +115,8 @@ fun ProjectPlanningScreen(database:StoryDatabase, project:StoryProject, modifier
      }
      exportLauncher.launch("planejamento-${project.title.replace(Regex("[^A-Za-z0-9_-]"), "_")}.txt")
     }
-   }) { Icon(Icons.Default.Download,null); Text(" Exportar TXT") }
-   TextButton(onClick={ scope.launch { runCatching { exportPlanningArchive(database,project) }.onSuccess { planningJson=it; planningJsonExportLauncher.launch("planejamento.escritor.json") }.onFailure { android.widget.Toast.makeText(context,"Falha ao preparar planejamento: ${it.message}",android.widget.Toast.LENGTH_LONG).show() } } }) { Text("Exportar JSON") }
+   }) { Icon(Icons.Default.Download,null); Text("TXT") }
+   TextButton(onClick={ scope.launch { runCatching { exportPlanningArchive(database,project) }.onSuccess { planningJson=it; planningJsonExportLauncher.launch("planejamento.escritor.json") }.onFailure { android.widget.Toast.makeText(context,"Falha ao preparar planejamento: ${it.message}",android.widget.Toast.LENGTH_LONG).show() } } }) { Text("JSON") }
    }
   ScrollableTabRow(selectedTabIndex=tab) { tabs.forEachIndexed { i,t -> Tab(selected=tab==i,onClick={tab=i;clear()},text={Text(t)}) } }
   Column(Modifier.fillMaxSize().padding(14.dp)) {
